@@ -9,3 +9,6 @@
 
 					
 ##### the program is run with raspberry.
+
+### features
+control the monitor on/off by searching a given file on google drive
