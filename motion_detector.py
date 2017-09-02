@@ -38,6 +38,7 @@ class MMotivation:
         #loop over the frames of the video
 
         while True:
+            time.sleep(0.5)
             # grab the current frame and initialize the occupied/unoccupied
             # text
             (grabbed, frame) = self.camera.read()
@@ -49,14 +50,14 @@ class MMotivation:
                 break
 
             # resize the frame, convert it to grayscale, and blur it
-            frame = imutils.resize(frame, width=500)
+            # frame = imutils.resize(frame, width=500)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             gray = cv2.GaussianBlur(gray, (21, 21), 0)
 
             # if the first frame is None, initialize it
             if self.firstFrame is None:
                 time.sleep(5)
-                frame = imutils.resize(frame, width=500)
+                # frame = imutils.resize(frame, width=500)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 gray = cv2.GaussianBlur(gray, (21, 21), 0)
                 self.firstFrame = gray
@@ -65,7 +66,7 @@ class MMotivation:
             # compute the absolute difference between the current frame and
             # first frame
             frameDelta = cv2.absdiff(self.firstFrame, gray)
-            thresh = cv2.threshold(frameDelta, 50, 255, cv2.THRESH_BINARY)[1]
+            thresh = cv2.threshold(frameDelta, 100, 255, cv2.THRESH_BINARY)[1]
 
             # dilate the thresholded image to fill in holes, then find contours
             # on thresholded image
