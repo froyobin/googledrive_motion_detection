@@ -10,11 +10,14 @@ import time
 import cv2
 import os
 import thread
+import Queue
 from myGdrive.googledrive import MyGDrive
-
 
 PREFIX_NAME = "MOTION_"
 PIC_MAX = 500
+GSTOREGE = Queue.Queue(500)
+MONITOR_STAT = True
+
 class MMotivation:
     def __init__(self, args):
         # if  video argument is None, then we are reading from webcam
@@ -28,17 +31,23 @@ class MMotivation:
         # initialize the first frame in the video stream
         self.firstFrame = None
         self.counter = 0
+
     def close_camera(self):
         # cleanup the camera and close any open windows
         self.camera.release()
         cv2.destroyAllWindows()
 
     def sensoring_loop(self):
+        global MONITOR_STAT
 
-        #loop over the frames of the video
+        # loop over the frames of the video
 
         while True:
-            time.sleep(0.5)
+            time.sleep(0.3)
+            if MONITOR_STAT is False:
+                time.sleep(1)
+                print "the monitor is off line..."
+                continue
             # grab the current frame and initialize the occupied/unoccupied
             # text
             (grabbed, frame) = self.camera.read()
@@ -90,12 +99,14 @@ class MMotivation:
             cv2.putText(frame, "Room Status: {}".format(text), (10, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             cv2.putText(frame,
-                        datetime.datetime.now().strftime("%A %d %B %Y %I:%M:%S%p"),
-                        (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35,
+                        datetime.datetime.now().strftime(
+                            "%A %d %B %Y %I:%M:%S%p"),
+                        (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.35,
                         (0, 0, 255), 1)
 
             # show the frame and record if the user presses a key
-            cv2.imshow("Security Feed", frame)
+            # cv2.imshow("Security Feed", frame)
             # cv2.imshow("Thresh", thresh)
             # cv2.imshow("Frame Delta", frameDelta)
             key = cv2.waitKey(1) & 0xFF
@@ -103,7 +114,7 @@ class MMotivation:
                 if self.counter == PIC_MAX:
                     self.counter = 0
                 name = PREFIX_NAME + str(self.counter)
-                path = "./tmp/"+name+".png"
+                path = "./tmp/" + name + ".png"
                 cv2.imwrite(path, frame)
                 self.counter += 1
                 self.firstFrame = gray
@@ -112,18 +123,37 @@ class MMotivation:
             if key == ord("q"):
                 break
 
-def delete_file(this_driver, file_id):
 
-
+def upload_delete_file(this_drive, folder_id):
     while True:
         files = os.listdir("./tmp")
         for each in files[:-1]:
             print "upload " + each
             PREFIX = "./tmp/"
             path = PREFIX + each
-            this_drive.upload_file(file_id, each, path)
+            #so the maximum is 501 elements
+            file_id = this_drive.upload_file(folder_id, each, path)
+            while True:
+                try:
+                    GSTOREGE.put(file_id, block=False)
+                    break
+                except Queue.Full:
+                    delete_file_id = GSTOREGE.get()
+                    this_drive.delete_file(delete_file_id)
+
             os.remove(path)
         print "finish this round"
+        time.sleep(5)
+
+
+def monitor_status(this_drive, filename):
+    global MONITOR_STAT
+    while True:
+        tfile = this_drive.query_exit_file(filename)
+        if tfile is None:
+            MONITOR_STAT = False
+        else:
+            MONITOR_STAT = True
         time.sleep(5)
 
 if __name__ == '__main__':
@@ -136,10 +166,8 @@ if __name__ == '__main__':
     this_drive = MyGDrive()
     file_id = this_drive.get_file_id('video_camera')
 
-
-    thread.start_new_thread(delete_file, (this_drive, file_id))
+    thread.start_new_thread(upload_delete_file, (this_drive, file_id))
+    thread.start_new_thread(monitor_status, (this_drive, "start_monitor.txt"))
     this_monitor = MMotivation(args)
     this_monitor.sensoring_loop()
-    thread.start_new_thread(delete_file, ("Thread-1", 2, ))
-
     this_monitor.close_camera()

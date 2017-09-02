@@ -1,6 +1,6 @@
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
-
+import time
 
 class MyGDrive:
     def __init__(self):
@@ -30,10 +30,30 @@ class MyGDrive:
         file = self.drive.CreateFile(metadata)
         file.SetContentFile(filepath)
         file.Upload() # Upload the file.
+        return file['id']
 
+    def delete_file(self, fileid):
+        dfile = self.drive.CreateFile({'id': fileid})
+        file_name = dfile['title']
+        dfile.Delete()
+        print "delete: " + file_name
+
+    def query_exit_file(self, filename):
+        file_list = self.drive.ListFile(
+            {'q': "title = '%s' and trashed=false" % filename}).GetList()
+        if len(file_list) == 0:
+            return None
+        else:
+            return file_list[0]
 
 if __name__ == "__main__":
-    this_drive = MyGoogleDrive()
+    this_drive = MyGDrive()
     # this_drive.upload_file("hello", '/home/pi/test.png')
     file_id = this_drive.get_file_id('video_camera')
-    this_drive.upload_file(file_id, "pic.png", "/home/pi/test.png")
+    uploaded_id = this_drive.upload_file(file_id, "pic.png",
+                                         "/home/pi/test.png")
+    # time.sleep(10)
+    # this_drive.delete_file(uploaded_id)
+    file = this_drive.query_exit_file("start_monitor.txt")
+    if file is not None:
+        print file['title']
